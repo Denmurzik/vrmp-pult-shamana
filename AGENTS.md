@@ -56,7 +56,7 @@ Gradle-сборка тяжёлая: не запускай несколько с�
 
 ## Процесс
 
-- Задачи — issues в GitHub, канбан-доска в GitHub Projects (Backlog → Todo → In Progress → Review → Done).
+- Задачи — issues в GitHub, [канбан-доска](https://github.com/users/Denmurzik/projects/1) в GitHub Projects (Backlog → Todo → In Progress → Review → Done).
 - Ветка на задачу: `<area>/<issue>-<short-name>`, например `core/12-dtw`.
 - PR ссылается на issue (`Closes #12`), ревью — минимум один человек из другой зоны.
 - Коммиты: `<область>: <что сделано>` на русском, например `core: DTW с полосой Сакое–Чиба`.

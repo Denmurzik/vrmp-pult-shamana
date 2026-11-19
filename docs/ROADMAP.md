@@ -1,6 +1,6 @@
 # План и роли
 
-Срок: защита в конце декабря 2026. Работа ведётся по канбан-доске в GitHub Projects
+Срок: защита в конце декабря 2026. Работа ведётся по [канбан-доске](https://github.com/users/Denmurzik/projects/1) в GitHub Projects
 (статусы: Backlog → Todo → In Progress → Review → Done). Задачи — issues с метками области
 и майлстоунами по неделям.
 

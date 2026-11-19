@@ -1,1 +1,30 @@
+# Материалы курса и переписка — не публикуем
 context/
+
+# Данные: в git только маленькие сэмплы
+data/*
+!data/samples/
+
+# Gradle / Android
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Python
+__pycache__/
+.venv/
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db

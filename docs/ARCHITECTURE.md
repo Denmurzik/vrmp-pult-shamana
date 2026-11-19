@@ -101,7 +101,7 @@ interface GestureRecognizer {
 ## Сборка и проверки
 
 - Gradle (Kotlin DSL), version catalog `gradle/libs.versions.toml`.
-- `./gradlew :core:test` — юнит-тесты (JUnit 5), обязательны для распознавателей и арбитра.
+- `./gradlew :core:test` — юнит-тесты (JUnit 6), обязательны для распознавателей и арбитра.
 - `./gradlew :bench:run --args="..."` — офлайн-прогон.
 - `./gradlew :app:assembleDebug` — APK.
 - `analysis/` — Python 3.12, зависимости в `analysis/requirements.txt`.

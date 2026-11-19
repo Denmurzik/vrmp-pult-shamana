@@ -19,8 +19,8 @@
 
 | Путь | Что | Стек |
 |---|---|---|
-| `core/` | Распознаватели, арбитр команд, игровая логика, форматы | Kotlin/JVM, JUnit 5 |
-| `app/` | Android-приложение | Kotlin, Compose, CameraX, MediaPipe Tasks |
+| `core/` | Распознаватели, арбитр команд, игровая логика, форматы | Kotlin/JVM, JUnit 6 |
+| `app/` | Android-приложение | Kotlin, Compose + Material 3 Expressive, CameraX, MediaPipe Tasks |
 | `bench/` | Офлайн-прогон распознавателей по записям | Kotlin/JVM CLI |
 | `analysis/` | Статистика и графики | Python 3.12, pandas, scipy, matplotlib |
 | `data/` | Записи (в git только `data/samples/`) | CSV/JSONL |
@@ -61,3 +61,23 @@ Gradle-сборка тяжёлая: не запускай несколько с�
 - PR ссылается на issue (`Closes #12`), ревью — минимум один человек из другой зоны.
 - Коммиты: `<область>: <что сделано>` на русском, например `core: DTW с полосой Сакое–Чиба`.
 - Метки областей: `area:core`, `area:bench`, `area:sensors`, `area:game`, `area:camera`, `area:research`, `area:docs`.
+
+## UI: Material 3 Expressive
+
+Дизайн-язык — **Material 3 Expressive** (D-16). Правила для UI-кода в `app/`:
+
+- Корневая тема — `MaterialExpressiveTheme(motionScheme = MotionScheme.expressive())`, цвета — из
+  схемы проекта (`expressiveLightColorScheme` / тёмная схема), не хардкодить цвета и размеры в экранах.
+- Версия `material3` закреплена в `gradle/libs.versions.toml` (1.5.x): Compose BOM 2026.09 тянет 1.4.0 без Expressive API.
+  Не удаляй override, пока BOM не подтянет 1.5.0+.
+- Стабильно в 1.5.0: `MaterialExpressiveTheme`, `MotionScheme.expressive()`, `ButtonGroup`, `ToggleButton`,
+  `SplitButton`, `FloatingToolbar`, FAB menu, flexible top app bars, wavy progress indicators.
+  Ещё **экспериментально** (нужен `@OptIn(ExperimentalMaterial3ExpressiveApi::class)`):
+  `LoadingIndicator`, `MaterialShapes` / shape morphing, `AppBarWithSearch`. Используй их точечно.
+- Сверяй сигнатуры по актуальной документации, а не по памяти:
+  context7 — library ID `/websites/developer_android_reference_kotlin_androidx_compose_material3`.
+- Рекомендуемые инструменты для агентов:
+  - скилл [hamen/material-3-skill](https://github.com/hamen/material-3-skill) — токены, компоненты, аудит соответствия M3;
+  - [Google Design MCP](https://developers.google.com/design-mcp/overview) (`https://design.googleapis.com/mcp`) —
+    генерация цветовой схемы, иконки, шрифты.
+- Дизайн-система и макеты экранов — в Figma (см. задачи этапа 2–3); код следует макетам.

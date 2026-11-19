@@ -19,7 +19,7 @@ RnD-проект курса ВРМП (НГУ ФИТ, 2026). Телефон — �
 
 ## Стек
 
-Android (Kotlin, Jetpack Compose, CameraX, MediaPipe Tasks), чистое Kotlin-ядро на JVM,
+Android (Kotlin, Jetpack Compose, Material 3 Expressive, CameraX, MediaPipe Tasks), чистое Kotlin-ядро на JVM,
 анализ на Python.
 
 ## Команда

@@ -77,6 +77,6 @@ IDLE → CANDIDATE → CONFIRMED → (окно отмены 2 с) → COMMITTED
 
 ## 6. Платформа
 
-Android, Kotlin, Jetpack Compose, minSdk 26, MediaPipe Tasks Vision (Hand Landmarker, LIVE_STREAM),
+Android, Kotlin, Jetpack Compose, **Material 3 Expressive** (material3 1.5.x), minSdk 26, compileSdk 37, MediaPipe Tasks Vision (Hand Landmarker, LIVE_STREAM),
 CameraX, датчики `TYPE_GAME_ROTATION_VECTOR`, `TYPE_LINEAR_ACCELERATION`, `TYPE_GYROSCOPE`,
 `TYPE_PROXIMITY`. Ориентация — по `GAME_ROTATION_VECTOR` (без магнитометра: нет скачков компаса в помещении).

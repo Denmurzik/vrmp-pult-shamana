@@ -17,6 +17,7 @@ RnD-проект курса ВРМП (НГУ ФИТ, 2026). Телефон — �
 - [Журнал решений](docs/DECISIONS.md)
 - [Инструкции для агентов](AGENTS.md)
 - [Канбан-доска](https://github.com/users/Denmurzik/projects/1)
+- [Анализ пользовательского теста](analysis/README.md)
 
 ## Стек
 

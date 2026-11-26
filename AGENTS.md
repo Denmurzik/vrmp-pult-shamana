@@ -14,6 +14,7 @@
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — модули, интерфейсы, формат записей.
 - [docs/ROADMAP.md](docs/ROADMAP.md) — роли, этапы, критерии приёмки.
 - [docs/DECISIONS.md](docs/DECISIONS.md) — принятые решения. Не пересматривай их молча.
+- [analysis/README.md](analysis/README.md) — подготовка наблюдений и запуск статистики пользовательского теста.
 
 ## Структура
 

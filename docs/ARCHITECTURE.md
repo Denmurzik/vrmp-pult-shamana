@@ -91,9 +91,14 @@ interface GestureRecognizer {
 минимальная/максимальная длительность. Рывок — пик `linAcc` вдоль оси вверх; встряхивание —
 ≥ 3 смены знака сильного ускорения за 600 мс; круг — накопленный угол гироскопа вокруг нормали экрана ≥ 300° за ≤ 1.5 с.
 
-**DTW** (`DtwRecognizer`): сегментация по энергии движения с гистерезисом → признаки
-(`linAcc` + `gyro`, z-нормализация) → DTW с полосой Сакое–Чиба до каждого эталона → 1-NN,
-отказ (null) при расстоянии выше порога. Реализация своя, в `:core`.
+**DTW** (`DtwRecognizer`, `Dtw`, `DtwTemplate` в `core/.../recognition/`): сегментация по EMA-сглаженной
+энергии движения (`linAcc.norm() + gyroEnergyWeight * gyro.norm()`) с гистерезисом, дебаунсом окончания
+(`endHoldNanos`) и ограничениями длительности (`minDurationNanos`..`maxDurationNanos`) → извлечение
+признаков (`FeatureSet`: `LIN_ACC_ONLY`, `GYRO_ONLY`, `LIN_ACC_AND_GYRO`) → равномерный ресэмплинг
+(`resampleLength`, по умолчанию 32) и поканальная z-нормализация → DTW с полосой Сакое–Чиба
+(`sakoeChibaBandRatio`) до каждого эталона (`DtwTemplate.fromCalibration(CalibrationProfile)`) → 1-NN,
+отказ (`Rejected`) при расстоянии выше `rejectThreshold`, коротком сегменте или отсутствии эталонов.
+Реализация своя, чистый Kotlin/JVM в `:core`, без внешних ML-библиотек.
 
 **Камера** (`CameraRecognizer`): вход — `HandFrame` из MediaPipe. Кулак — коэффициент сгибания
 пальцев с гистерезисом (переход ладонь → кулак); круг — накопленный угол траектории кончика

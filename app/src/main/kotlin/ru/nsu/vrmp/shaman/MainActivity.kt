@@ -22,6 +22,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import ru.nsu.vrmp.shaman.ui.experiment.ExperimentRoute
 import ru.nsu.vrmp.shaman.ui.game.GameRoute
 import ru.nsu.vrmp.shaman.ui.theme.ShamanTheme
 import ru.nsu.vrmp.shaman.ui.training.TrainingRoute
@@ -29,6 +30,7 @@ import ru.nsu.vrmp.shaman.ui.training.TrainingRoute
 enum class AppDestination(val label: String) {
     GAME("Игра"),
     TRAINING("Тренировка"),
+    EXPERIMENT("Эксперимент"),
 }
 
 class MainActivity : ComponentActivity() {
@@ -88,6 +90,7 @@ private fun ShamanRoot() {
             when (destination) {
                 AppDestination.GAME -> GameRoute()
                 AppDestination.TRAINING -> TrainingRoute()
+                AppDestination.EXPERIMENT -> ExperimentRoute()
             }
         }
     }

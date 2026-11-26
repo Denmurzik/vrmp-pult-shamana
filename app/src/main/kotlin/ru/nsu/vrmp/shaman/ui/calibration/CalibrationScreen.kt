@@ -1,5 +1,23 @@
 package ru.nsu.vrmp.shaman.ui.calibration
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.findViewTreeLifecycleOwner
+import ru.nsu.vrmp.shaman.camera.CameraPreview
+import ru.nsu.vrmp.shaman.camera.HandCamera
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -40,8 +58,6 @@ import ru.nsu.vrmp.shaman.calibration.CalibrationUiState
 import ru.nsu.vrmp.shaman.calibration.FileCalibrationStore
 import ru.nsu.vrmp.shaman.calibration.ImuSampler
 import ru.nsu.vrmp.shaman.core.calibration.CalibrationStep
-import ru.nsu.vrmp.shaman.core.input.HandFrame
-import ru.nsu.vrmp.shaman.core.math.Vec3
 import ru.nsu.vrmp.shaman.core.recognition.Gesture
 import ru.nsu.vrmp.shaman.feedback.AndroidFeedbackPlayer
 import ru.nsu.vrmp.shaman.game.BannerTone
@@ -67,6 +83,32 @@ fun CalibrationRoute(modifier: Modifier = Modifier) {
         CalibrationController(store = store, feedbackPlayer = feedbackPlayer)
     }
 
+    val lifecycle = checkNotNull(LocalView.current.findViewTreeLifecycleOwner())
+    var cameraActive by remember { mutableStateOf(false) }
+    var cameraPreview by remember { mutableStateOf<CameraPreview?>(null) }
+    var cameraError by remember { mutableStateOf<String?>(null) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        cameraActive = granted && controller.uiState.calibration.step == CalibrationStep.CAMERA_CHECK
+        cameraError = if (granted) null else "Для проверки нужен доступ к камере"
+    }
+    val cameraVisible = cameraActive && controller.uiState.calibration.step == CalibrationStep.CAMERA_CHECK
+    if (cameraVisible) {
+        DisposableEffect(lifecycle) {
+            val camera = HandCamera(context, lifecycle, { cameraPreview = it }) {
+                cameraError = "Не удалось запустить или обработать кадр фронтальной камеры"
+                cameraActive = false
+                cameraPreview = null
+            }
+            camera.start()
+            onDispose { camera.close() }
+        }
+    }
+    val stopCamera = {
+        cameraActive = false
+        cameraPreview = null
+        cameraError = null
+    }
+
     CalibrationScreen(
         state = controller.uiState,
         hasMotionSensors = sampler.hasMotionSensors,
@@ -82,17 +124,26 @@ fun CalibrationRoute(modifier: Modifier = Modifier) {
             }
         },
         onRunCameraCheck = {
-            // Until CameraX + MediaPipe (#13) lands, evaluate a sample frame with valid lighting.
-            val sampleHand = HandFrame(
-                tNanos = System.nanoTime(),
-                present = true,
-                landmarks = List(HandFrame.LANDMARK_COUNT) { Vec3(0.5, 0.5, 0.0) },
-            )
-            controller.evaluateCamera(listOf(sampleHand), lumaMean = 128.0)
+            val frame = cameraPreview
+            when {
+                frame != null -> controller.evaluateCamera(listOf(frame.result.frame), frame.luma)
+                ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED -> {
+                    cameraError = null
+                    cameraActive = true
+                }
+                else -> permission.launch(Manifest.permission.CAMERA)
+            }
         },
-        onConfirmCamera = controller::confirmCameraReady,
-        onSkipCamera = controller::skipCameraCheck,
-        onReset = controller::reset,
+        onConfirmCamera = { stopCamera(); controller.confirmCameraReady() },
+        onSkipCamera = { stopCamera(); controller.skipCameraCheck() },
+        onReset = { stopCamera(); controller.reset() },
+        cameraPanel = {
+            cameraPreview?.let { CameraDiagnostics(it) }
+            if (cameraActive && cameraPreview == null) Text("Подготовка фронтальной камеры…")
+            cameraError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        },
+        cameraButtonLabel = if (cameraActive) "Проверить камеру" else "Включить камеру",
+        cameraCheckEnabled = !cameraActive || cameraPreview != null,
         modifier = modifier,
     )
 }
@@ -108,6 +159,9 @@ fun CalibrationScreen(
     onSkipCamera: () -> Unit,
     onReset: () -> Unit,
     modifier: Modifier = Modifier,
+    cameraPanel: @Composable () -> Unit = {},
+    cameraButtonLabel: String = "Проверить камеру",
+    cameraCheckEnabled: Boolean = true,
 ) {
     val colors = MaterialTheme.colorScheme
     val cal = state.calibration
@@ -152,6 +206,9 @@ fun CalibrationScreen(
             CalibrationStep.CAMERA_CHECK -> CameraCheckStep(
                 state = state,
                 onRunCameraCheck = onRunCameraCheck,
+                cameraPanel = cameraPanel,
+                buttonLabel = cameraButtonLabel,
+                checkEnabled = cameraCheckEnabled,
                 onConfirmCamera = onConfirmCamera,
                 onSkipCamera = onSkipCamera,
             )
@@ -313,6 +370,9 @@ private fun CameraCheckStep(
     onRunCameraCheck: () -> Unit,
     onConfirmCamera: () -> Unit,
     onSkipCamera: () -> Unit,
+    cameraPanel: @Composable () -> Unit,
+    buttonLabel: String,
+    checkEnabled: Boolean,
 ) {
     val colors = MaterialTheme.colorScheme
     val cam = state.calibration.cameraStatus
@@ -349,13 +409,16 @@ private fun CameraCheckStep(
         )
     }
 
+    cameraPanel()
+
     Button(
         onClick = onRunCameraCheck,
+        enabled = checkEnabled,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 52.dp),
     ) {
-        Text("Проверить камеру")
+        Text(buttonLabel)
     }
 
     if (cam.isReady) {
@@ -378,6 +441,38 @@ private fun CameraCheckStep(
         Text("Пропустить камеру (только IMU)")
     }
 }
+
+@Composable
+private fun CameraDiagnostics(preview: CameraPreview) {
+    val color = MaterialTheme.colorScheme.tertiary
+    val bitmap = preview.bitmap
+    val points = preview.result.frame.landmarks
+    Box(Modifier.fillMaxWidth().aspectRatio(bitmap.width.toFloat() / bitmap.height).clip(MaterialTheme.shapes.large)) {
+        Image(bitmap.asImageBitmap(), "Предпросмотр фронтальной камеры", Modifier.fillMaxSize().graphicsLayer { scaleX = -1f })
+        Canvas(Modifier.fillMaxSize()) {
+            fun project(index: Int) = Offset(
+                ((1 - points[index].x) * size.width).toFloat(),
+                (points[index].y * size.height).toFloat(),
+            )
+            if (points.isNotEmpty()) {
+                for ((from, to) in HAND_EDGES) drawLine(color, project(from), project(to), 2.dp.toPx())
+                points.indices.forEach { drawCircle(color, 3.dp.toPx(), project(it)) }
+            }
+        }
+    }
+    val fps = preview.result.fps?.let { "%.1f".format(it) } ?: "—"
+    val hand = if (points.isEmpty()) "Кисть не видна" else "21 точка кисти"
+    Text("$hand · $fps кадр/с", style = MaterialTheme.typography.labelLarge)
+    if (!preview.result.exact) Text("Время камеры оценено. Для синхронного датасета нужен источник REALTIME.")
+}
+
+private val HAND_EDGES = listOf(
+    0 to 1, 1 to 2, 2 to 3, 3 to 4,
+    0 to 5, 5 to 6, 6 to 7, 7 to 8,
+    5 to 9, 9 to 10, 10 to 11, 11 to 12,
+    9 to 13, 13 to 14, 14 to 15, 15 to 16,
+    13 to 17, 17 to 18, 18 to 19, 19 to 20, 17 to 0,
+)
 
 @Composable
 private fun CalibrationCompletedView(

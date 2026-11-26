@@ -73,6 +73,9 @@ interface GestureRecognizer {
   `game/TouchCommandArbiter.kt`, `ui/theme/Theme.kt`): тема Material 3 Expressive (`ShamanTheme`),
   радар-дуга с отображением только духов в конусе и поворотом свайпом, кнопки «Поймать» / «Изгнать» / «Отмена»,
   маршрутизация тача через `TouchRecognizer` и локальный `TouchCommandArbiter` (временно до слияния `#3`).
+- Обратная связь (`core/.../feedback/FeedbackPlanner.kt`, `app/.../feedback/AndroidFeedbackPlayer.kt`):
+  расчёт интервала, амплитуды и тона ∝ близости луча к духу, паттерны откликов `CANDIDATE` / `CONFIRMED` /
+  `CANCELLED` / `ERROR` / `ATTACK`, воспроизведение через `Vibrator` и синтез тонов в `AudioTrack`.
 
 ## Распознаватели
 

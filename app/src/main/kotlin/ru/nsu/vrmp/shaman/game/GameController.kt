@@ -4,6 +4,8 @@ import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import ru.nsu.vrmp.shaman.core.feedback.CommandFeedbackKind
+import ru.nsu.vrmp.shaman.core.feedback.FeedbackPlanner
 import ru.nsu.vrmp.shaman.core.game.CommandErrorReason
 import ru.nsu.vrmp.shaman.core.game.CommandOutcome
 import ru.nsu.vrmp.shaman.core.game.GameConfig
@@ -13,7 +15,10 @@ import ru.nsu.vrmp.shaman.core.game.SpiritType
 import ru.nsu.vrmp.shaman.core.input.TouchAction
 import ru.nsu.vrmp.shaman.core.input.TouchFrame
 import ru.nsu.vrmp.shaman.core.recognition.Gesture
+import ru.nsu.vrmp.shaman.core.recognition.RecognizerEvent
 import ru.nsu.vrmp.shaman.core.recognition.TouchRecognizer
+import ru.nsu.vrmp.shaman.feedback.FeedbackPlayer
+import ru.nsu.vrmp.shaman.feedback.NoOpFeedbackPlayer
 
 enum class BannerTone {
     NEUTRAL,
@@ -38,10 +43,12 @@ data class GameUiState(
  */
 class GameController(
     private val clockNanos: () -> Long = { SystemClock.elapsedRealtimeNanos() },
+    private val feedbackPlayer: FeedbackPlayer = NoOpFeedbackPlayer,
 ) {
     private val engine = GameEngine()
     private val touchRecognizer = TouchRecognizer()
     private val arbiter = TouchCommandArbiter()
+    private val feedbackPlanner = FeedbackPlanner()
 
     private var roundNumber = 1
     private var currentSeed = 101L
@@ -67,6 +74,13 @@ class GameController(
         val now = clockNanos()
         val gameResult = engine.update(now, scannerYawRad)
         val arbiterSnap = arbiter.advance(now)
+        if (!gameResult.state.finished) {
+            feedbackPlanner.poll(
+                proximity = gameResult.state.beamProximity,
+                attackActive = gameResult.state.pendingAttack != null,
+                tNanos = now,
+            )?.let(feedbackPlayer::play)
+        }
         uiState = uiState.copy(
             game = gameResult.state,
             arbiter = arbiterSnap,
@@ -80,6 +94,13 @@ class GameController(
         scannerYawRad = GameEngine.normalizeAngleRad(scannerYawRad + deltaYawRad)
         val gameResult = engine.update(now, scannerYawRad)
         val arbiterSnap = arbiter.advance(now)
+        if (!gameResult.state.finished) {
+            feedbackPlanner.poll(
+                proximity = gameResult.state.beamProximity,
+                attackActive = gameResult.state.pendingAttack != null,
+                tNanos = now,
+            )?.let(feedbackPlayer::play)
+        }
         uiState = uiState.copy(
             game = gameResult.state,
             arbiter = arbiterSnap,
@@ -91,9 +112,14 @@ class GameController(
         val events = touchRecognizer.onFrame(TouchFrame(now, TouchAction.Press(gesture)))
         arbiter.advance(now)
         for (event in events) {
+            if (event is RecognizerEvent.Candidate) {
+                feedbackPlayer.play(FeedbackPlanner.commandCue(CommandFeedbackKind.CANDIDATE))
+            }
             val (_, action) = arbiter.onEvent(event)
             if (action != null) {
                 executeArbiterAction(action)
+            } else if (event is RecognizerEvent.Rejected) {
+                feedbackPlayer.play(FeedbackPlanner.commandCue(CommandFeedbackKind.ERROR))
             }
         }
         val state = engine.currentState()
@@ -114,6 +140,7 @@ class GameController(
                 val res = engine.applyCommand(action.commandId, action.gesture, action.tNanos)
                 when (val outcome = res.outcome) {
                     is CommandOutcome.Success -> {
+                        feedbackPlayer.play(FeedbackPlanner.commandCue(CommandFeedbackKind.CONFIRMED))
                         bannerTitle = when (outcome.spiritType) {
                             SpiritType.WANDERING -> "Дух пойман"
                             SpiritType.EVIL -> "Злой дух изгнан"
@@ -123,6 +150,7 @@ class GameController(
                     }
 
                     is CommandOutcome.Error -> {
+                        feedbackPlayer.play(FeedbackPlanner.commandCue(CommandFeedbackKind.ERROR))
                         bannerTitle = errorMessage(outcome.reason)
                         bannerSubtitle = "Можно отменить в течение 2 с"
                         bannerTone = BannerTone.ERROR
@@ -136,12 +164,14 @@ class GameController(
                 val res = engine.cancelCommand(action.commandId, action.tNanos)
                 when (res.outcome) {
                     is CommandOutcome.Cancelled -> {
+                        feedbackPlayer.play(FeedbackPlanner.commandCue(CommandFeedbackKind.CANCELLED))
                         bannerTitle = "Команда отменена"
                         bannerSubtitle = "Действие откачено без штрафа распознавания"
                         bannerTone = BannerTone.WARNING
                     }
 
                     else -> {
+                        feedbackPlayer.play(FeedbackPlanner.commandCue(CommandFeedbackKind.ERROR))
                         bannerTitle = "Отмена недоступна"
                         bannerSubtitle = "Окно отмены истекло"
                         bannerTone = BannerTone.NEUTRAL
@@ -159,6 +189,7 @@ class GameController(
         val now = clockNanos()
         touchRecognizer.reset()
         arbiter.reset()
+        feedbackPlanner.reset()
         scannerYawRad = 0.0
         val started = engine.startRound(
             seed = currentSeed,

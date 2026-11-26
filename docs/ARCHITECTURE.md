@@ -81,6 +81,9 @@ interface GestureRecognizer {
 - Режим эксперимента (`core/.../experiment/ExperimentProtocol.kt`, `app/.../experiment/ExperimentController.kt`,
   `app/.../ui/experiment/ExperimentScreen.kt`): сбалансированный латинский квадрат Уильямса 4×4, сиды по позиции,
   отключение доп. событий и единый `ExperimentLogSink` (для подключения `SessionRecorder` из `#8`).
+- Калибровка (`core/.../calibration/CalibrationManager.kt`, `app/.../calibration/CalibrationController.kt`,
+  `FileCalibrationStore`, `ImuSampler`, `app/.../ui/calibration/CalibrationScreen.kt`): нулевое направление,
+  запись по 5 эталонов каждого IMU-жеста для DTW, проверка камеры и освещения, сохранение профиля в `filesDir`.
 
 ## Распознаватели
 

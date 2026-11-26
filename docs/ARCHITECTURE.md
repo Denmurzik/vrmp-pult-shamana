@@ -117,10 +117,26 @@ interface GestureRecognizer {
 Время — `SensorEvent.timestamp` / таймстемп кадра камеры в одной шкале (`elapsedRealtimeNanos`).
 Персональных данных в записях нет: только анонимный ID.
 
+## Офлайн-бенчмарк (`:bench`)
+
+CLI в `bench/src/main/kotlin/ru/nsu/vrmp/shaman/bench/`:
+- `RecordingLoader` загружает сессии (`meta.json`, `imu.csv`, `hand.csv`, `labels.csv`), объединяет кадры IMU и камеры в хронологическом порядке (`tNanos`), трактует отсутствие меток или строки `gesture="null"` как нулевой поток.
+- `StreamingEvaluator` прогоняет кадры через любой `GestureRecognizer` без подглядывания в метки, делает 1-к-1 сопоставление с настраиваемым окном допуска (`--tolerance-ms`, по умолчанию 500 мс) и считает precision / recall / F1 по классам и macro, матрицу ошибок (с классом `NONE`), FP/мин на нулевом потоке, F1 по скоростям (`slow`, `normal`, `fast`), медиану/p95 задержки (`tEmit - tEnd` и `tEmit - label.tEndNs`) и CPU-время на кадр (мкс).
+- `DtwSplitPlanner` формирует разбиения без утечки данных для режимов `standard`, `personal` (первые `k=5` сегментов каждого жеста участника — эталоны, остальные — тест) и `loso` (leave-one-subject-out).
+- `RecognizerRegistry` содержит `"touch"` из коробки и принимает фабрики для остальных распознавателей (`"threshold"`, `"dtw"`, `"camera"`).
+- `CsvReportWriter` пишет `metrics.csv`, `confusion_matrix.csv` и `speed_f1.csv` в формате `Locale.US` (точка в дробях).
+- Синтетические сэмплы для smoke-проверки лежат в `data/samples/demo_01/` и `data/samples/demo_null_01/`.
+
+Пример запуска:
+```bash
+./gradlew :bench:run --args="--input data/samples --recognizer touch --out build/bench-out --mode standard --tolerance-ms 500"
+```
+
 ## Сборка и проверки
 
 - Gradle (Kotlin DSL), version catalog `gradle/libs.versions.toml`.
-- `./gradlew :core:test` — юнит-тесты (JUnit 6), обязательны для распознавателей и арбитра.
-- `./gradlew :bench:run --args="..."` — офлайн-прогон.
+- `./gradlew :core:test` — юнит-тесты ядра (JUnit 6), обязательны для распознавателей и арбитра.
+- `./gradlew :bench:test` — юнит-тесты офлайн-бенчмарка (JUnit 6).
+- `./gradlew :bench:run --args="--input data/samples --recognizer touch --out build/bench-out"` — офлайн-прогон.
 - `./gradlew :app:assembleDebug` — APK.
 - `analysis/` — Python 3.12, зависимости в `analysis/requirements.txt`.

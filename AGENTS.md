@@ -32,7 +32,8 @@
 
 ```bash
 ./gradlew :core:test            # юнит-тесты ядра — запускай после любых изменений в core/
-./gradlew :bench:run --args=""  # офлайн-бенчмарк
+./gradlew :bench:test           # юнит-тесты офлайн-бенчмарка
+./gradlew :bench:run --args="--input data/samples --recognizer touch --out build/bench-out"  # офлайн-бенчмарк
 ./gradlew :app:assembleDebug    # сборка APK
 cd analysis && python -m pip install -r requirements.txt
 ```

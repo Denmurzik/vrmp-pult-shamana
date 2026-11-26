@@ -1,0 +1,8 @@
+{
+  "session_id": "demo_01",
+  "participant_id": "P01",
+  "condition": "dataset",
+  "seed": 42,
+  "device": "synthetic",
+  "app_version": "0.1.0"
+}

@@ -69,6 +69,10 @@ interface GestureRecognizer {
   спавн духов по фиксированному сиду (`SpiritSpawner`), видимость только в конусе сканера
   (±15°, при тумане ±7.5°), проверка команд и откат по `commandId`, жизни/мана/ловушки/атаки
   и их отключение в `experimentMode`.
+- Экран игры и тач-управление (`app/.../ui/game/GameScreen.kt`, `RadarArcCanvas.kt`, `game/GameController.kt`,
+  `game/TouchCommandArbiter.kt`, `ui/theme/Theme.kt`): тема Material 3 Expressive (`ShamanTheme`),
+  радар-дуга с отображением только духов в конусе и поворотом свайпом, кнопки «Поймать» / «Изгнать» / «Отмена»,
+  маршрутизация тача через `TouchRecognizer` и локальный `TouchCommandArbiter` (временно до слияния `#3`).
 
 ## Распознаватели
 

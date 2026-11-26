@@ -80,7 +80,12 @@ interface GestureRecognizer {
   `app/.../ui/training/TrainingScreen.kt`): 3 успешных повтора на каждый жест с подсказками и подсчётом попыток.
 - Режим эксперимента (`core/.../experiment/ExperimentProtocol.kt`, `app/.../experiment/ExperimentController.kt`,
   `app/.../ui/experiment/ExperimentScreen.kt`): сбалансированный латинский квадрат Уильямса 4×4, сиды по позиции,
-  отключение доп. событий и единый `ExperimentLogSink` (для подключения `SessionRecorder` из `#8`).
+  отключение доп. событий и единый `ExperimentLogSink` (подключается к `SessionRecorder.asExperimentLogSink()`).
+- Запись и экспорт сессий (`core/.../recording/SessionRecorder.kt`, `SessionModels.kt`, `SessionJson.kt`,
+  `SessionArchive.kt`, `app/.../recording/AndroidSessionStorage.kt`, `SessionShareHelper.kt`):
+  буферизованная запись `meta.json`, `imu.csv`, `hand.csv`, `labels.csv` и `events.jsonl` в `:core` без Android-зависимостей,
+  упаковка в ZIP с сохранением пути `data/<kind>/<session_id>/...`, экспорт через Android Share Sheet (`FileProvider`)
+  или `adb exec-out run-as ru.nsu.vrmp.shaman tar -cf - -C files/sessions data > sessions.tar`.
 - Калибровка (`core/.../calibration/CalibrationManager.kt`, `app/.../calibration/CalibrationController.kt`,
   `FileCalibrationStore`, `ImuSampler`, `app/.../ui/calibration/CalibrationScreen.kt`): нулевое направление,
   запись по 5 эталонов каждого IMU-жеста для DTW, проверка камеры и освещения, сохранение профиля в `filesDir`.
@@ -108,14 +113,15 @@ interface GestureRecognizer {
 
 | Файл | Содержимое |
 |---|---|
-| `meta.json` | ID участника (`P01`), условие, сид, устройство, версия приложения, git SHA, параметры распознавателей |
-| `imu.csv` | `t_ns,ax,ay,az,gx,gy,gz,qw,qx,qy,qz` |
-| `hand.csv` | `t_ns,present,x0,y0,z0,…,x20,y20,z20` |
+| `meta.json` | `schema_version` (`1`), `session_id`, `kind`, ID участника (`P01`…`P99` или `null`), условие, сид, устройство, версия приложения, git SHA, параметры распознавателей |
+| `imu.csv` | `t_ns,ax,ay,az,gx,gy,gz,qw,qx,qy,qz` (десятичная точка `Locale.US`) |
+| `hand.csv` | `t_ns,present,x0,y0,z0,…,x20,y20,z20` (65 колонок; при `present=false` ячейки координат пустые) |
 | `labels.csv` | (датасет) `t_start_ns,t_end_ns,gesture,speed` |
-| `events.jsonl` | события распознавателя, арбитра и игры с `t_ns` |
+| `events.jsonl` | события распознавателя, арбитра, тача, игры и эксперимента с полями `t_ns`, `source`, `type`, `payload` |
 
 Время — `SensorEvent.timestamp` / таймстемп кадра камеры в одной шкале (`elapsedRealtimeNanos`).
 Персональных данных в записях нет: только анонимный ID.
+На устройстве сессии сохраняются в `filesDir/sessions/data/<kind>/<session_id>/`; экспорт — ZIP через Share Sheet (`SessionShareHelper`) или `adb` (для debug-сборок через `run-as`).
 
 ## Сборка и проверки
 

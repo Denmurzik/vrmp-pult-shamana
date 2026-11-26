@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import ru.nsu.vrmp.shaman.ui.calibration.CalibrationRoute
+import ru.nsu.vrmp.shaman.ui.dataset.DatasetRoute
 import ru.nsu.vrmp.shaman.ui.experiment.ExperimentRoute
 import ru.nsu.vrmp.shaman.ui.game.GameRoute
 import ru.nsu.vrmp.shaman.ui.theme.ShamanTheme
@@ -28,6 +29,7 @@ enum class AppDestination(val label: String) {
     TRAINING("Тренировка"),
     CALIBRATION("Калибровка"),
     EXPERIMENT("Эксперимент"),
+    DATASET("Датасет"),
 }
 
 class MainActivity : ComponentActivity() {
@@ -71,6 +73,7 @@ private fun ShamanRoot() {
                 AppDestination.TRAINING -> TrainingRoute()
                 AppDestination.CALIBRATION -> CalibrationRoute()
                 AppDestination.EXPERIMENT -> ExperimentRoute()
+                AppDestination.DATASET -> DatasetRoute()
             }
         }
     }

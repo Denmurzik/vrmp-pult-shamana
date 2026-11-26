@@ -91,6 +91,11 @@ interface GestureRecognizer {
   буферизованная запись `meta.json`, `imu.csv`, `hand.csv`, `labels.csv` и `events.jsonl` в `:core` без Android-зависимостей,
   упаковка в ZIP с сохранением пути `data/<kind>/<session_id>/...`, экспорт через Android Share Sheet (`FileProvider`)
   или `adb exec-out run-as ru.nsu.vrmp.shaman tar -cf - -C files/sessions data > sessions.tar`.
+- Режим записи датасета (`core/.../dataset/DatasetCaptureSession.kt`, `app/.../dataset/DatasetController.kt`,
+  `app/.../ui/dataset/DatasetScreen.kt`): детерминированный автомат по монотонному `tNanos` для
+  серий жестов (3 жеста × 3 скорости, отсчёт 3 с, окно записи 2.5 с, подтверждение или повтор)
+  и нулевых записей (`walk`, `table`, `pocket`, `typing`, по умолчанию 2 мин, `gesture="null"`),
+  запись в `SessionRecorder` (`labels.csv`, `imu.csv`, хук для `HandFrame`) и экспорт ZIP.
 - Калибровка (`core/.../calibration/CalibrationManager.kt`, `app/.../calibration/CalibrationController.kt`,
   `FileCalibrationStore`, `ImuSampler`, `app/.../ui/calibration/CalibrationScreen.kt`): нулевое направление,
   запись по 5 эталонов каждого IMU-жеста для DTW, проверка камеры и освещения, сохранение профиля в `filesDir`.

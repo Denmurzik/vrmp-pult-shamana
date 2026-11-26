@@ -78,6 +78,9 @@ interface GestureRecognizer {
   `CANCELLED` / `ERROR` / `ATTACK`, воспроизведение через `Vibrator` и синтез тонов в `AudioTrack`.
 - Тренажёр жестов (`core/.../training/GestureTrainer.kt`, `app/.../training/TrainingController.kt`,
   `app/.../ui/training/TrainingScreen.kt`): 3 успешных повтора на каждый жест с подсказками и подсчётом попыток.
+- Режим эксперимента (`core/.../experiment/ExperimentProtocol.kt`, `app/.../experiment/ExperimentController.kt`,
+  `app/.../ui/experiment/ExperimentScreen.kt`): сбалансированный латинский квадрат Уильямса 4×4, сиды по позиции,
+  отключение доп. событий и единый `ExperimentLogSink` (для подключения `SessionRecorder` из `#8`).
 
 ## Распознаватели
 

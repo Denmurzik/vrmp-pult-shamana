@@ -22,16 +22,19 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import ru.nsu.vrmp.shaman.core.game.SpiritType
 import ru.nsu.vrmp.shaman.core.recognition.Gesture
+import ru.nsu.vrmp.shaman.feedback.AndroidFeedbackPlayer
 import ru.nsu.vrmp.shaman.game.BannerTone
 import ru.nsu.vrmp.shaman.game.GameController
 import ru.nsu.vrmp.shaman.game.GameUiState
@@ -40,7 +43,15 @@ import java.util.Locale
 
 @Composable
 fun GameRoute(modifier: Modifier = Modifier) {
-    val controller = remember { GameController() }
+    val context = LocalContext.current.applicationContext
+    val feedbackPlayer = remember { AndroidFeedbackPlayer(context) }
+    DisposableEffect(feedbackPlayer) {
+        onDispose { feedbackPlayer.release() }
+    }
+
+    val controller = remember(feedbackPlayer) {
+        GameController(feedbackPlayer = feedbackPlayer)
+    }
     val state = controller.uiState
 
     LaunchedEffect(state.roundNumber, state.game.finished) {

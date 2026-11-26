@@ -93,6 +93,37 @@ class CameraRecognizerTest {
         assertTrue(recognizer.onFrame(hand(40, flex = 1.0)).isEmpty())
     }
 
+    @Test
+    fun `a half closed fist times out while still visible`() {
+        val recognizer = CameraRecognizer()
+        recognizer.onFrame(hand(0))
+        recognizer.onFrame(hand(20, flex = 0.5))
+        for (time in 120L..720L step 100) recognizer.onFrame(hand(time, flex = 0.5))
+        assertTrue(recognizer.onFrame(hand(721, flex = 0.5)).any { it is RecognizerEvent.Rejected })
+        assertTrue(recognizer.onFrame(hand(740, flex = 1.0)).isEmpty())
+    }
+
+    @Test
+    fun `completing a wave disarms the previous open palm`() {
+        val recognizer = CameraRecognizer()
+        val events = listOf(0.0, 0.11, -0.02, 0.1).flatMapIndexed { i, x ->
+            recognizer.onFrame(hand(i * 150L, shiftX = x))
+        }
+        assertEquals(Gesture.CANCEL, events.filterIsInstance<RecognizerEvent.Detected>().single().gesture)
+        assertTrue(recognizer.onFrame(hand(500, flex = 1.0, shiftX = 0.1)).isEmpty())
+    }
+
+    @Test
+    fun `a 300 degree circle can banish`() {
+        val recognizer = CameraRecognizer()
+        val events = (0..15).flatMap { step ->
+            val angle = step * PI / 9
+            val tip = Vec3(0.49 + 0.08 * cos(angle), 0.37 + 0.08 * sin(angle), 0.0)
+            recognizer.onFrame(hand(step * 50L, indexTip = tip))
+        }
+        assertEquals(Gesture.BANISH, events.filterIsInstance<RecognizerEvent.Detected>().single().gesture)
+    }
+
     private fun hand(
         timeMs: Long,
         flex: Double = 0.0,

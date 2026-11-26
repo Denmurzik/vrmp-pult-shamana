@@ -47,6 +47,10 @@ class CameraRecognizer : GestureRecognizer {
             fistArmed = false
         }
         if (openHand) fistArmed = true
+        if (candidate?.let { it.gesture == Gesture.CATCH && time - it.tNanos > FIST_WINDOW_NS } == true) {
+            events.rejectCandidate(time, "fist timed out")
+            fistArmed = false
+        }
         if (fistArmed && curl >= FIST_CANDIDATE_CURL) {
             events.startCandidate(Gesture.CATCH, time)
             motion.clear()
@@ -72,6 +76,7 @@ class CameraRecognizer : GestureRecognizer {
         if (confirmed != null) {
             events.startCandidate(confirmed.gesture, time)
             events.detect(confirmed.gesture, confirmed.confidence, confirmed.startedAt, time)
+            fistArmed = false
             motion.clear()
         } else if (candidate == null) {
             (wave ?: circle)?.let { events.startCandidate(it.gesture, time) }
@@ -201,6 +206,7 @@ class CameraRecognizer : GestureRecognizer {
         const val INDEX_TIP = 8
         const val MIDDLE_MCP = 9
         val FINGER_BASES = intArrayOf(5, MIDDLE_MCP, 13, 17)
+        const val FIST_WINDOW_NS = 700_000_000L
         const val HAND_LOSS_NS = 300_000_000L
         const val WAVE_WINDOW_NS = 800_000_000L
         const val CIRCLE_WINDOW_NS = 1_500_000_000L
@@ -218,6 +224,6 @@ class CameraRecognizer : GestureRecognizer {
         const val CIRCLE_CANDIDATE_ANGLE = PI * 0.9
         const val MIN_CIRCLE_ANGLE = PI * 5.0 / 3.0
         const val MIN_TURN_CONSISTENCY = 0.8
-        const val MAX_CIRCLE_GAP_RATIO = 0.65
+        const val MAX_CIRCLE_GAP_RATIO = 1.15
     }
 }

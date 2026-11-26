@@ -11,6 +11,7 @@
 Перед работой прочитай:
 - [docs/SPEC.md](docs/SPEC.md) — игра, команды, датчики, режимы.
 - [docs/RESEARCH.md](docs/RESEARCH.md) — гипотезы, бенчмарк, пользовательский тест, метрики.
+- [docs/PROTOCOL.md](docs/PROTOCOL.md) — сценарий пользовательского теста, порядок условий и формы.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — модули, интерфейсы, формат записей.
 - [docs/ROADMAP.md](docs/ROADMAP.md) — роли, этапы, критерии приёмки.
 - [docs/DECISIONS.md](docs/DECISIONS.md) — принятые решения. Не пересматривай их молча.

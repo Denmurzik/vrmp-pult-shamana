@@ -76,6 +76,8 @@ interface GestureRecognizer {
 - Обратная связь (`core/.../feedback/FeedbackPlanner.kt`, `app/.../feedback/AndroidFeedbackPlayer.kt`):
   расчёт интервала, амплитуды и тона ∝ близости луча к духу, паттерны откликов `CANDIDATE` / `CONFIRMED` /
   `CANCELLED` / `ERROR` / `ATTACK`, воспроизведение через `Vibrator` и синтез тонов в `AudioTrack`.
+- Тренажёр жестов (`core/.../training/GestureTrainer.kt`, `app/.../training/TrainingController.kt`,
+  `app/.../ui/training/TrainingScreen.kt`): 3 успешных повтора на каждый жест с подсказками и подсчётом попыток.
 
 ## Распознаватели
 

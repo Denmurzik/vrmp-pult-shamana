@@ -4,50 +4,74 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialExpressiveTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MotionScheme
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import ru.nsu.vrmp.shaman.core.recognition.Gesture
+import ru.nsu.vrmp.shaman.ui.calibration.CalibrationRoute
+import ru.nsu.vrmp.shaman.ui.experiment.ExperimentRoute
+import ru.nsu.vrmp.shaman.ui.game.GameRoute
+import ru.nsu.vrmp.shaman.ui.theme.ShamanTheme
+import ru.nsu.vrmp.shaman.ui.training.TrainingRoute
+
+enum class AppDestination(val label: String) {
+    GAME("Игра"),
+    TRAINING("Тренировка"),
+    CALIBRATION("Калибровка"),
+    EXPERIMENT("Эксперимент"),
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MaterialExpressiveTheme(motionScheme = MotionScheme.expressive()) {
-                Scaffold { padding ->
-                    PlaceholderScreen(Modifier.padding(padding))
-                }
+            ShamanTheme(darkTheme = true) {
+                ShamanRoot()
             }
         }
     }
 }
 
-/** Temporary start screen; replaced by the game screen in #7. */
 @Composable
-fun PlaceholderScreen(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("Пульт шамана", style = MaterialTheme.typography.headlineMedium)
-        Text("Gestures: " + Gesture.entries.joinToString { it.name })
-    }
-}
+private fun ShamanRoot() {
+    var destination by rememberSaveable { mutableStateOf(AppDestination.GAME) }
 
-@Preview
-@Composable
-private fun PlaceholderScreenPreview() {
-    MaterialExpressiveTheme { PlaceholderScreen() }
+    Scaffold(
+        bottomBar = {
+            PrimaryScrollableTabRow(
+                selectedTabIndex = destination.ordinal,
+            ) {
+                AppDestination.entries.forEach { item ->
+                    Tab(
+                        selected = destination == item,
+                        onClick = { destination = item },
+                        text = { Text(item.label) },
+                    )
+                }
+            }
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            when (destination) {
+                AppDestination.GAME -> GameRoute()
+                AppDestination.TRAINING -> TrainingRoute()
+                AppDestination.CALIBRATION -> CalibrationRoute()
+                AppDestination.EXPERIMENT -> ExperimentRoute()
+            }
+        }
+    }
 }

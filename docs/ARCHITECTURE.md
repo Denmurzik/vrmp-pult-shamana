@@ -71,6 +71,25 @@ interface GestureRecognizer {
   Никаких `System.currentTimeMillis()` внутри — только `tNanos` из кадров.
 - Скан (ориентация → азимут) — отдельный `HeadingTracker`, общий для всех IMU/камерных условий.
 - `CommandArbiter` реализует состояния из [SPEC.md](SPEC.md#3-жизненный-цикл-команды): окно отмены, рефрактерный период.
+- `GameEngine` (`core/.../game/GameEngine.kt`, `GameModels.kt`) — детерминированная логика раунда:
+  спавн духов по фиксированному сиду (`SpiritSpawner`), видимость только в конусе сканера
+  (±15°, при тумане ±7.5°), проверка команд и откат по `commandId`, жизни/мана/ловушки/атаки
+  и их отключение в `experimentMode`.
+- Экран игры и тач-управление (`app/.../ui/game/GameScreen.kt`, `RadarArcCanvas.kt`, `game/GameController.kt`,
+  `game/TouchCommandArbiter.kt`, `ui/theme/Theme.kt`): тема Material 3 Expressive (`ShamanTheme`),
+  радар-дуга с отображением только духов в конусе и поворотом свайпом, кнопки «Поймать» / «Изгнать» / «Отмена»,
+  маршрутизация тача через `TouchRecognizer` и локальный `TouchCommandArbiter` (временно до слияния `#3`).
+- Обратная связь (`core/.../feedback/FeedbackPlanner.kt`, `app/.../feedback/AndroidFeedbackPlayer.kt`):
+  расчёт интервала, амплитуды и тона ∝ близости луча к духу, паттерны откликов `CANDIDATE` / `CONFIRMED` /
+  `CANCELLED` / `ERROR` / `ATTACK`, воспроизведение через `Vibrator` и синтез тонов в `AudioTrack`.
+- Тренажёр жестов (`core/.../training/GestureTrainer.kt`, `app/.../training/TrainingController.kt`,
+  `app/.../ui/training/TrainingScreen.kt`): 3 успешных повтора на каждый жест с подсказками и подсчётом попыток.
+- Режим эксперимента (`core/.../experiment/ExperimentProtocol.kt`, `app/.../experiment/ExperimentController.kt`,
+  `app/.../ui/experiment/ExperimentScreen.kt`): сбалансированный латинский квадрат Уильямса 4×4, сиды по позиции,
+  отключение доп. событий и единый `ExperimentLogSink` (для подключения `SessionRecorder` из `#8`).
+- Калибровка (`core/.../calibration/CalibrationManager.kt`, `app/.../calibration/CalibrationController.kt`,
+  `FileCalibrationStore`, `ImuSampler`, `app/.../ui/calibration/CalibrationScreen.kt`): нулевое направление,
+  запись по 5 эталонов каждого IMU-жеста для DTW, проверка камеры и освещения, сохранение профиля в `filesDir`.
 
 ## Распознаватели
 

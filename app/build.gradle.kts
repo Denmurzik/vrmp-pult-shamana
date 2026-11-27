@@ -26,13 +26,26 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    androidResources.noCompress += "task"
+
     buildFeatures {
         compose = true
     }
 }
 
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+}
+
 dependencies {
     implementation(project(":core"))
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.mediapipe.vision)
+
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

@@ -21,6 +21,17 @@ class CameraFramePipelineTest {
     }
 
     @Test
+    fun `a dropped model result expires and a late callback cannot complete the next frame`() {
+        val pipeline = CameraFramePipeline(realtime = true)
+        val first = requireNotNull(pipeline.offer(100_000_000L, 110_000_000L))
+
+        assertNull(pipeline.offer(1_099_000_000L, 1_109_000_000L))
+        val next = requireNotNull(pipeline.offer(1_100_000_000L, 1_110_000_000L))
+        assertNull(pipeline.result(first.taskMillis, emptyList()))
+        assertEquals(HandFrame.absent(1_100_000_000L), pipeline.result(next.taskMillis, emptyList())?.frame)
+    }
+
+    @Test
     fun `missing hands still emit frames and count toward processed FPS`() {
         val pipeline = CameraFramePipeline(realtime = true)
         val first = pipeline.result(pipeline.offer(100_000_000L, 100_000_000L)!!.taskMillis, emptyList())!!

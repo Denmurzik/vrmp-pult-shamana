@@ -97,14 +97,18 @@ internal class HandCamera(
         try {
             if (closed.get()) return
             val capture = pipeline.offer(image.imageInfo.timestamp, SystemClock.elapsedRealtimeNanos()) ?: return
+            releasePending()
             val brightness = luma(image)
             val raw = image.toBitmap()
             val rotation = Matrix().apply { postRotate(image.imageInfo.rotationDegrees.toFloat()) }
             val bitmap = Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, rotation, true)
+            if (raw !== bitmap) raw.recycle()
             val input = BitmapImageBuilder(bitmap).build()
             pending = PendingImage(input, bitmap, brightness, pipeline)
             checkNotNull(model).detectAsync(input, capture.taskMillis)
         } catch (_: RuntimeException) {
+            pipeline.cancelPending()
+            releasePending()
             fail()
         } finally {
             image.close()
@@ -114,9 +118,23 @@ internal class HandCamera(
     private fun deliver(taskMillis: Long, points: List<Vec3>) {
         val image = pending ?: return
         val result = image.pipeline.result(taskMillis, points) ?: return
+        val preview = try {
+            // MediaPipe recycles its input bitmap on close. Compose owns this copy.
+            val bitmap = checkNotNull(image.bitmap.copy(Bitmap.Config.ARGB_8888, false))
+            CameraPreview(result, bitmap, image.luma)
+        } catch (_: RuntimeException) {
+            fail()
+            return
+        } finally {
+            releasePending()
+        }
+        main.execute { if (!closed.get()) onPreview(preview) }
+    }
+
+    private fun releasePending() {
+        val image = pending ?: return
         pending = null
         image.input.close()
-        main.execute { if (!closed.get()) onPreview(CameraPreview(result, image.bitmap, image.luma)) }
     }
 
     private fun enqueueResult(action: () -> Unit) {
@@ -158,8 +176,7 @@ internal class HandCamera(
             try {
                 model?.close()
             } finally {
-                pending?.input?.close()
-                pending = null
+                releasePending()
             }
         }
         worker.shutdown()

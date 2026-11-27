@@ -26,6 +26,9 @@ class ImuSampler(context: Context) : SensorEventListener {
     private var recording = false
     private val recorded = mutableListOf<ImuFrame>()
 
+    /** Optional live frame callback used by continuous recorders (e.g. dataset mode). */
+    var onImuFrame: ((ImuFrame) -> Unit)? = null
+
     val hasMotionSensors: Boolean
         get() = rotSensor != null && accSensor != null && gyroSensor != null
 
@@ -56,9 +59,11 @@ class ImuSampler(context: Context) : SensorEventListener {
         when (event.sensor.type) {
             Sensor.TYPE_LINEAR_ACCELERATION -> {
                 latestAcc = Vec3(event.values[0].toDouble(), event.values[1].toDouble(), event.values[2].toDouble())
+                val frame = ImuFrame(event.timestamp, latestAcc, latestGyro, latestRot)
                 if (recording) {
-                    recorded += ImuFrame(event.timestamp, latestAcc, latestGyro, latestRot)
+                    recorded += frame
                 }
+                onImuFrame?.invoke(frame)
             }
 
             Sensor.TYPE_GYROSCOPE -> {

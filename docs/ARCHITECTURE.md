@@ -28,6 +28,9 @@ Touch UI ────────┘        │                                 
 
 ## Ключевые интерфейсы (`:core`)
 
+Ниже приведён существующий контракт ввода и распознавания. API реализованного движка
+и проект общего арбитра описаны в [ТЗ](stage2-3/TZ.md#42-api-ядра).
+
 ```kotlin
 sealed interface InputFrame { val tNanos: Long }
 data class ImuFrame(
@@ -39,19 +42,22 @@ data class ImuFrame(
 data class HandFrame(
     override val tNanos: Long,
     val present: Boolean,
-    val landmarks: List<Vec3>, // 21 точка MediaPipe, нормированные координаты
+    val landmarks: List<Vec3>, // 21 точка MediaPipe при наличии руки, иначе пустой список
 ) : InputFrame
 data class TouchFrame(override val tNanos: Long, val action: TouchAction) : InputFrame
 
 enum class Gesture { CATCH, BANISH, CANCEL }
 
 sealed interface RecognizerEvent {
-    data class Candidate(val gesture: Gesture, val tNanos: Long) : RecognizerEvent
+    val tNanos: Long
+    data class Candidate(val gesture: Gesture, override val tNanos: Long) : RecognizerEvent
     data class Detected(
         val gesture: Gesture, val confidence: Double,
         val tStart: Long, val tEnd: Long, val tEmit: Long,
-    ) : RecognizerEvent
-    data class Rejected(val tNanos: Long, val reason: String) : RecognizerEvent
+    ) : RecognizerEvent {
+        override val tNanos: Long get() = tEmit
+    }
+    data class Rejected(override val tNanos: Long, val reason: String) : RecognizerEvent
 }
 
 interface GestureRecognizer {

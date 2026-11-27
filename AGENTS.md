@@ -10,6 +10,7 @@
 
 Перед работой прочитай:
 - [docs/SPEC.md](docs/SPEC.md) — игра, команды, датчики, режимы.
+- [docs/stage2-3/TZ.md](docs/stage2-3/TZ.md) — сценарии, макеты и техническое проектирование.
 - [docs/RESEARCH.md](docs/RESEARCH.md) — гипотезы, бенчмарк, пользовательский тест, метрики.
 - [docs/PROTOCOL.md](docs/PROTOCOL.md) — сценарий пользовательского теста, порядок условий и формы.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — модули, интерфейсы, формат записей.

@@ -18,8 +18,19 @@ kotlin {
 
 dependencies {
     implementation(project(":core"))
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 application {
     mainClass.set("ru.nsu.vrmp.shaman.bench.MainKt")
+}
+
+tasks.named<JavaExec>("run") {
+    workingDir = rootProject.projectDir
 }

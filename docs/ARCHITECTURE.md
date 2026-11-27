@@ -63,7 +63,10 @@ interface GestureRecognizer {
 
 - Распознаватели **детерминированы**: одинаковый поток кадров → одинаковые события.
   Никаких `System.currentTimeMillis()` внутри — только `tNanos` из кадров.
-- Скан (ориентация → азимут) — отдельный `HeadingTracker`, общий для всех IMU/камерных условий.
+- Скан (ориентация → азимут) — `HeadingTracker` (`core/.../orientation/HeadingTracker.kt`), общий для всех IMU/камерных условий:
+  переводит кватернион устройство→мир (`GAME_ROTATION_VECTOR`) в относительный азимут в `[-π, π)` (положительный — по часовой стрелке),
+  поддерживает калибровку нуля (`calibrateZero`, совместим с `CalibrationProfile.zeroHeadingRotation`) и устойчив к наклону телефона
+  (проекция `+Y` на горизонтальную плоскость с плавным переходом на `∓Z` вблизи вертикали).
 - `CommandArbiter` (`core/.../arbiter/CommandArbiter.kt`) реализует детерминированный конечный автомат
   состояний из [SPEC.md](SPEC.md#3-жизненный-цикл-команды) (`IDLE → CANDIDATE → CONFIRMED → COMMITTED / CANCELLED / REJECTED`):
   окно отмены 2 с, рефрактерный период 400 мс (не блокирует `Gesture.CANCEL`), авто-коммит предыдущей команды при новой подтверждённой команде.
@@ -82,27 +85,76 @@ interface GestureRecognizer {
   `app/.../ui/training/TrainingScreen.kt`): 3 успешных повтора на каждый жест с подсказками и подсчётом попыток.
 - Режим эксперимента (`core/.../experiment/ExperimentProtocol.kt`, `app/.../experiment/ExperimentController.kt`,
   `app/.../ui/experiment/ExperimentScreen.kt`): сбалансированный латинский квадрат Уильямса 4×4, сиды по позиции,
-  отключение доп. событий и единый `ExperimentLogSink` (для подключения `SessionRecorder` из `#8`).
+  отключение доп. событий и единый `ExperimentLogSink` (подключается к `SessionRecorder.asExperimentLogSink()`).
+- Запись и экспорт сессий (`core/.../recording/SessionRecorder.kt`, `SessionModels.kt`, `SessionJson.kt`,
+  `SessionArchive.kt`, `app/.../recording/AndroidSessionStorage.kt`, `SessionShareHelper.kt`):
+  буферизованная запись `meta.json`, `imu.csv`, `hand.csv`, `labels.csv` и `events.jsonl` в `:core` без Android-зависимостей,
+  упаковка в ZIP с сохранением пути `data/<kind>/<session_id>/...`, экспорт через Android Share Sheet (`FileProvider`)
+  или `adb exec-out run-as ru.nsu.vrmp.shaman tar -cf - -C files/sessions data > sessions.tar`.
 - Калибровка (`core/.../calibration/CalibrationManager.kt`, `app/.../calibration/CalibrationController.kt`,
   `FileCalibrationStore`, `ImuSampler`, `app/.../ui/calibration/CalibrationScreen.kt`): нулевое направление,
   запись по 5 эталонов каждого IMU-жеста для DTW, проверка камеры и освещения, сохранение профиля в `filesDir`.
 
 ## Распознаватели
 
-**Пороги** (`ThresholdRecognizer`): сглаживание (EMA), пороги начала/конца с гистерезисом,
-минимальная/максимальная длительность. Рывок — пик `linAcc` вдоль оси вверх; встряхивание —
-≥ 3 смены знака сильного ускорения за 600 мс; круг — накопленный угол гироскопа вокруг нормали экрана ≥ 300° за ≤ 1.5 с.
+**Пороги** (`ThresholdRecognizer`, `core/.../recognition/ThresholdRecognizer.kt`):
+детерминированный IMU-распознаватель (`id = "threshold"`) с конфигурируемым `ThresholdRecognizer.Config`
+(для подбора параметров в `:bench`): EMA-сглаживание `linAcc` и `gyro` (`emaAlpha = 0.35`),
+игнорирование не-IMU кадров и нефинитных значений.
+- `CATCH` (рывок вверх): пик `linAcc.y` с гистерезисом старт/стоп (`6.0 / 2.0` м/с²) и окном длительности `60–500` мс;
+- `CANCEL` (встряхивание): ≥ 3 смены знака сильного ускорения (`≥ 7.0` м/с²) по любой оси за `600` мс с рефрактерным сбросом;
+- `BANISH` (круг): накопленный угол `gyro.z` вокруг нормали экрана ≥ 300° (`5π/3` рад) в одном направлении (CW/CCW) за `200–1500` мс.
+Выдаёт `Candidate` на раннем пороге, `Detected` с оценкой уверенности `[0, 1]` и `Rejected` при нарушении длительности, таймауте или развороте.
 
-**DTW** (`DtwRecognizer`): сегментация по энергии движения с гистерезисом → признаки
-(`linAcc` + `gyro`, z-нормализация) → DTW с полосой Сакое–Чиба до каждого эталона → 1-NN,
-отказ (null) при расстоянии выше порога. Реализация своя, в `:core`.
+**DTW** (`DtwRecognizer`, `Dtw`, `DtwTemplate` в `core/.../recognition/`): сегментация по EMA-сглаженной
+энергии движения (`linAcc.norm() + gyroEnergyWeight * gyro.norm()`) с гистерезисом, дебаунсом окончания
+(`endHoldNanos`) и ограничениями длительности (`minDurationNanos`..`maxDurationNanos`) → извлечение
+признаков (`FeatureSet`: `LIN_ACC_ONLY`, `GYRO_ONLY`, `LIN_ACC_AND_GYRO`) → равномерный ресэмплинг
+(`resampleLength`, по умолчанию 32) и поканальная z-нормализация → DTW с полосой Сакое–Чиба
+(`sakoeChibaBandRatio`) до каждого эталона (`DtwTemplate.fromCalibration(CalibrationProfile)`) → 1-NN,
+отказ (`Rejected`) при расстоянии выше `rejectThreshold`, коротком сегменте или отсутствии эталонов.
+Реализация своя, чистый Kotlin/JVM в `:core`, без внешних ML-библиотек.
 
-**Камера** (`CameraRecognizer`): вход — `HandFrame` из MediaPipe. Кулак — коэффициент сгибания
-пальцев с гистерезисом (переход ладонь → кулак); круг — накопленный угол траектории кончика
-указательного вокруг её центроида; взмах — ≥ 2 смены направления ладони по X за 800 мс.
-Потеря руки > 300 мс сбрасывает кандидата.
+**Тач** (`TouchRecognizer`): преобразует нажатия на кнопки в события арбитра. Свайп
+меняет направление сканирования через отдельный трекер.
 
-**Тач** (`TouchRecognizer`): преобразует кнопки/свайп в те же события — чтобы логирование и арбитр были общими.
+### Камерный распознаватель
+
+`CameraRecognizer` обрабатывает `HandFrame` с 21 точкой MediaPipe. Длина от запястья до основания
+среднего пальца задаёт масштаб движения. Распознаватель передаёт события через общий интерфейс
+и использует время отсчётов.
+
+- **Кулак.** Для каждого из четырёх пальцев сравниваются прямая и ломаная от основания до
+  кончика. Открытая ладонь подготавливает распознавание на 700 мс. Сгибание всех четырёх пальцев
+  сначала даёт кандидата, затем подтверждает поимку на более высоком пороге. Повторная
+  поимка возможна после раскрытия ладони. Незавершённое сгибание отклоняется
+  через 700 мс. Подтверждённый взмах или круг также снимает подготовку поимки.
+- **Круг.** Алгоритм накапливает угол движения кончика указательного вокруг центроида
+  траектории в плоскости кадра. Изгнание подтверждается при повороте не менее 300° и
+  сближении концов траектории в окне до 1,5 с. Учитываются оба направления вращения.
+- **Взмах.** Движение центра ладони преимущественно по горизонтали даёт отмену после
+  двух значимых смен направления за 800 мс. Мелкие перемещения отфильтровываются
+  по масштабу ладони.
+
+При потере руки более чем на 300 мс распознаватель отклоняет активного кандидата, очищает
+историю движения и ждёт свежих кадров. Пороги заданы для первой реализации, их работу на
+реальных движениях проверяет офлайн-бенчмарк. [Модель точек MediaPipe](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker)
+
+## Вход с фронтальной камеры
+
+`HandCamera` привязывает CameraX ImageAnalysis к жизненному циклу Android и отправляет
+кадры в MediaPipe Hand Landmarker в режиме LIVE_STREAM. Один запрос находится в обработке
+одновременно. Если результат не приходит за секунду, следующий кадр заменяет ожидающий.
+Запоздалый ответ не сопоставляется с новым кадром. Каждый принятый результат преобразуется в `HandFrame` с 21 точкой либо
+с признаком отсутствия кисти. Наносекунды кадра сохраняются отдельно от метки MediaPipe
+в миллисекундах. При Camera2 REALTIME время совпадает со шкалой `elapsedRealtimeNanos`.
+Для UNKNOWN используется оценка смещения по первому кадру. Интерфейс помечает такой
+поток как непригодный для синхронного сбора IMU и камеры.
+
+Экран калибровки показывает зеркальный предпросмотр, скелет и частоту обработанных кадров
+за последнюю секунду. Предпросмотр хранит отдельную копию кадра в памяти. Модель Hand Landmarker Full FP16
+поставляется в APK. SHA-256 `fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1`.
+[Модель и лицензия Apache-2.0](https://huggingface.co/litert-community/MediaPipe-HandLandmarker-Full)
 
 ## Формат записей
 
@@ -110,19 +162,36 @@ interface GestureRecognizer {
 
 | Файл | Содержимое |
 |---|---|
-| `meta.json` | ID участника (`P01`), условие, сид, устройство, версия приложения, git SHA, параметры распознавателей |
-| `imu.csv` | `t_ns,ax,ay,az,gx,gy,gz,qw,qx,qy,qz` |
-| `hand.csv` | `t_ns,present,x0,y0,z0,…,x20,y20,z20` |
+| `meta.json` | `schema_version` (`1`), `session_id`, `kind`, ID участника (`P01`…`P99` или `null`), условие, сид, устройство, версия приложения, git SHA, параметры распознавателей |
+| `imu.csv` | `t_ns,ax,ay,az,gx,gy,gz,qw,qx,qy,qz` (десятичная точка `Locale.US`) |
+| `hand.csv` | `t_ns,present,x0,y0,z0,…,x20,y20,z20` (65 колонок; при `present=false` ячейки координат пустые) |
 | `labels.csv` | (датасет) `t_start_ns,t_end_ns,gesture,speed` |
-| `events.jsonl` | события распознавателя, арбитра и игры с `t_ns` |
+| `events.jsonl` | события распознавателя, арбитра, тача, игры и эксперимента с полями `t_ns`, `source`, `type`, `payload` |
 
 Время — `SensorEvent.timestamp` / таймстемп кадра камеры в одной шкале (`elapsedRealtimeNanos`).
 Персональных данных в записях нет: только анонимный ID.
+На устройстве сессии сохраняются в `filesDir/sessions/data/<kind>/<session_id>/`; экспорт — ZIP через Share Sheet (`SessionShareHelper`) или `adb` (для debug-сборок через `run-as`).
+
+## Офлайн-бенчмарк (`:bench`)
+
+CLI в `bench/src/main/kotlin/ru/nsu/vrmp/shaman/bench/`:
+- `RecordingLoader` загружает сессии (`meta.json`, `imu.csv`, `hand.csv`, `labels.csv`), объединяет кадры IMU и камеры в хронологическом порядке (`tNanos`), трактует отсутствие меток или строки `gesture="null"` как нулевой поток.
+- `StreamingEvaluator` прогоняет кадры через любой `GestureRecognizer` без подглядывания в метки, делает 1-к-1 сопоставление с настраиваемым окном допуска (`--tolerance-ms`, по умолчанию 500 мс) и считает precision / recall / F1 по классам и macro, матрицу ошибок (с классом `NONE`), FP/мин на нулевом потоке, F1 по скоростям (`slow`, `normal`, `fast`), медиану/p95 задержки (`tEmit - tEnd` и `tEmit - label.tEndNs`) и CPU-время на кадр (мкс).
+- `DtwSplitPlanner` формирует разбиения без утечки данных для режимов `standard`, `personal` (первые `k=5` сегментов каждого жеста участника — эталоны, остальные — тест) и `loso` (leave-one-subject-out).
+- `RecognizerRegistry` содержит `"touch"` из коробки и принимает фабрики для остальных распознавателей (`"threshold"`, `"dtw"`, `"camera"`).
+- `CsvReportWriter` пишет `metrics.csv`, `confusion_matrix.csv` и `speed_f1.csv` в формате `Locale.US` (точка в дробях).
+- Синтетические сэмплы для smoke-проверки лежат в `data/samples/demo_01/` и `data/samples/demo_null_01/`.
+
+Пример запуска:
+```bash
+./gradlew :bench:run --args="--input data/samples --recognizer touch --out build/bench-out --mode standard --tolerance-ms 500"
+```
 
 ## Сборка и проверки
 
 - Gradle (Kotlin DSL), version catalog `gradle/libs.versions.toml`.
-- `./gradlew :core:test` — юнит-тесты (JUnit 6), обязательны для распознавателей и арбитра.
-- `./gradlew :bench:run --args="..."` — офлайн-прогон.
+- `./gradlew :core:test` — юнит-тесты ядра (JUnit 6), обязательны для распознавателей и арбитра.
+- `./gradlew :bench:test` — юнит-тесты офлайн-бенчмарка (JUnit 6).
+- `./gradlew :bench:run --args="--input data/samples --recognizer touch --out build/bench-out"` — офлайн-прогон.
 - `./gradlew :app:assembleDebug` — APK.
 - `analysis/` — Python 3.12, зависимости в `analysis/requirements.txt`.

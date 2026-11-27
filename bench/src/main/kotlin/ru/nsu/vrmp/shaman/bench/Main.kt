@@ -1,10 +1,19 @@
 package ru.nsu.vrmp.shaman.bench
 
-import ru.nsu.vrmp.shaman.core.recognition.Gesture
+import kotlin.system.exitProcess
 
-/** Offline benchmark entry point. The real pipeline over recordings comes in #15. */
+/** Offline benchmark CLI entry point (`:bench`). */
 fun main(args: Array<String>) {
-    println("vrmp bench: offline recognizer evaluation (not implemented yet, see issue #15)")
-    println("gestures: ${Gesture.entries.joinToString()}")
-    if (args.isNotEmpty()) println("args: ${args.joinToString(" ")}")
+    if (args.isEmpty() || args.any { it == "--help" || it == "-h" }) {
+        println(BenchCli.USAGE)
+        println("Available recognizers: ${RecognizerRegistry.default().availableIds().sorted().joinToString()}")
+        return
+    }
+    try {
+        val report = BenchCli.run(args)
+        println(BenchCli.formatSummary(report))
+    } catch (e: IllegalArgumentException) {
+        System.err.println("Error: ${e.message}")
+        exitProcess(1)
+    }
 }

@@ -94,6 +94,24 @@ class CameraRecognizerTest {
     }
 
     @Test
+    fun `closing a hand after prolonged pointing requires a new open palm`() {
+        val recognizer = CameraRecognizer()
+        val open = hand(0)
+        val pointing = hand(0, flex = 1.0).landmarks.toMutableList()
+        for (point in 5..8) pointing[point] = open.landmarks[point]
+
+        recognizer.onFrame(open)
+        for (time in 100L..800L step 100) {
+            recognizer.onFrame(HandFrame(time * MS, true, pointing))
+        }
+        assertTrue(recognizer.onFrame(hand(850, flex = 1.0)).isEmpty())
+
+        recognizer.onFrame(hand(900))
+        val events = recognizer.onFrame(hand(950, flex = 1.0))
+        assertEquals(Gesture.CATCH, events.filterIsInstance<RecognizerEvent.Detected>().single().gesture)
+    }
+
+    @Test
     fun `a half closed fist times out while still visible`() {
         val recognizer = CameraRecognizer()
         recognizer.onFrame(hand(0))

@@ -12,13 +12,13 @@ class CameraRecognizer : GestureRecognizer {
     override val id: String = "camera"
 
     private var lastHandAt: Long? = null
-    private var fistArmed = false
+    private var fistArmedAt: Long? = null
     private var candidate: RecognizerEvent.Candidate? = null
     private val motion = ArrayDeque<MotionSample>()
 
     override fun reset() {
         lastHandAt = null
-        fistArmed = false
+        fistArmedAt = null
         candidate = null
         motion.clear()
     }
@@ -44,19 +44,20 @@ class CameraRecognizer : GestureRecognizer {
         val openHand = curls.max() <= OPEN_HAND_CURL
         if (curl <= OPEN_HAND_CURL && candidate?.gesture == Gesture.CATCH) {
             events.rejectCandidate(time, "hand reopened")
-            fistArmed = false
+            fistArmedAt = null
         }
-        if (openHand) fistArmed = true
+        if (openHand) fistArmedAt = time
         if (candidate?.let { it.gesture == Gesture.CATCH && time - it.tNanos > FIST_WINDOW_NS } == true) {
             events.rejectCandidate(time, "fist timed out")
-            fistArmed = false
+            fistArmedAt = null
         }
-        if (fistArmed && curl >= FIST_CANDIDATE_CURL) {
+        val recentlyOpen = fistArmedAt?.let { time - it <= FIST_WINDOW_NS } == true
+        if (curl >= FIST_CANDIDATE_CURL && (candidate?.gesture == Gesture.CATCH || recentlyOpen)) {
             events.startCandidate(Gesture.CATCH, time)
             motion.clear()
             if (curl >= CLOSED_HAND_CURL) {
                 events.detect(Gesture.CATCH, curl, checkNotNull(candidate).tNanos, time)
-                fistArmed = false
+                fistArmedAt = null
             }
             return events
         }
@@ -76,7 +77,7 @@ class CameraRecognizer : GestureRecognizer {
         if (confirmed != null) {
             events.startCandidate(confirmed.gesture, time)
             events.detect(confirmed.gesture, confirmed.confidence, confirmed.startedAt, time)
-            fistArmed = false
+            fistArmedAt = null
             motion.clear()
         } else if (candidate == null) {
             (wave ?: circle)?.let { events.startCandidate(it.gesture, time) }

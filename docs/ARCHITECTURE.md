@@ -67,7 +67,9 @@ interface GestureRecognizer {
   переводит кватернион устройство→мир (`GAME_ROTATION_VECTOR`) в относительный азимут в `[-π, π)` (положительный — по часовой стрелке),
   поддерживает калибровку нуля (`calibrateZero`, совместим с `CalibrationProfile.zeroHeadingRotation`) и устойчив к наклону телефона
   (проекция `+Y` на горизонтальную плоскость с плавным переходом на `∓Z` вблизи вертикали).
-- `CommandArbiter` реализует состояния из [SPEC.md](SPEC.md#3-жизненный-цикл-команды): окно отмены, рефрактерный период.
+- `CommandArbiter` (`core/.../arbiter/CommandArbiter.kt`) реализует детерминированный конечный автомат
+  состояний из [SPEC.md](SPEC.md#3-жизненный-цикл-команды) (`IDLE → CANDIDATE → CONFIRMED → COMMITTED / CANCELLED / REJECTED`):
+  окно отмены 2 с, рефрактерный период 400 мс (не блокирует `Gesture.CANCEL`), авто-коммит предыдущей команды при новой подтверждённой команде.
 - `GameEngine` (`core/.../game/GameEngine.kt`, `GameModels.kt`) — детерминированная логика раунда:
   спавн духов по фиксированному сиду (`SpiritSpawner`), видимость только в конусе сканера
   (±15°, при тумане ±7.5°), проверка команд и откат по `commandId`, жизни/мана/ловушки/атаки
@@ -75,7 +77,7 @@ interface GestureRecognizer {
 - Экран игры и тач-управление (`app/.../ui/game/GameScreen.kt`, `RadarArcCanvas.kt`, `game/GameController.kt`,
   `game/TouchCommandArbiter.kt`, `ui/theme/Theme.kt`): тема Material 3 Expressive (`ShamanTheme`),
   радар-дуга с отображением только духов в конусе и поворотом свайпом, кнопки «Поймать» / «Изгнать» / «Отмена»,
-  маршрутизация тача через `TouchRecognizer` и локальный `TouchCommandArbiter` (временно до слияния `#3`).
+  маршрутизация тача через `TouchRecognizer` и `TouchCommandArbiter` (адаптер над `:core` `CommandArbiter`).
 - Обратная связь (`core/.../feedback/FeedbackPlanner.kt`, `app/.../feedback/AndroidFeedbackPlayer.kt`):
   расчёт интервала, амплитуды и тона ∝ близости луча к духу, паттерны откликов `CANDIDATE` / `CONFIRMED` /
   `CANCELLED` / `ERROR` / `ATTACK`, воспроизведение через `Vibrator` и синтез тонов в `AudioTrack`.
